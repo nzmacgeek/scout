@@ -1,0 +1,14 @@
+{
+  "name": "scout",
+  "version": "__PACKAGE_VERSION__",
+  "arch": "i386",
+  "description": "DHCP client, DNS resolver configuration daemon, and basic network tools for BlueyOS",
+  "depends": [],
+  "recommends": [],
+  "conflicts": [],
+  "provides": ["dhcp-client", "dns-client", "ping", "tracert", "nslookup"],
+  "maintainer": "BlueyOS Maintainers <maintainers@blueyos.example>",
+  "homepage": "https://github.com/nzmacgeek/scout",
+  "files": [],
+  "scripts": {}
+}

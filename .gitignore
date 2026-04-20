@@ -1,0 +1,41 @@
+# OS and editor clutter
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Autotools local state and scratch output
+/autom4te.cache/
+/build/
+/dist/
+/package-stage/
+/config.log
+/config.status
+/stamp-h1
+/libtool
+
+# Recursive build products
+**/.deps/
+**/.libs/
+**/.dirstamp
+**/*.o
+**/*.lo
+**/*.la
+**/*.a
+**/*.so
+**/*.so.*
+**/*.Plo
+**/*.Po
+**/*.Tpo
+**/*.trs
+**/test-suite.log
+**/test-suite.dir/
+
+# Package artifacts
+*.dpk
+
+# Crash dumps
+core
+core.*

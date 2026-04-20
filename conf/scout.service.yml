@@ -1,0 +1,11 @@
+# /etc/claw/services.d/scout.service.yml
+name: scout
+aliases: claw-dhcp.service
+description: "Scout the network! — DHCP and DNS client for BlueyOS"
+type: simple
+start_cmd: /sbin/scoutd -n -c /etc/scout/scout.conf
+user: root
+restart: always
+restart_delay: 3
+after: claw-rootfs.target
+before: claw-network.target

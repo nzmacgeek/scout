@@ -1,0 +1,14 @@
+#!/bin/bash
+set -e
+
+mkdir -p /var/lib/scout
+
+if [ ! -f /etc/interfaces ]; then
+cat > /etc/interfaces <<'EOF'
+auto lo
+iface lo inet loopback
+EOF
+fi
+
+echo "scout installed"
+exit 0
