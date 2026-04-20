@@ -14,6 +14,8 @@
 #include <net/route.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#else
+#include "common.h"
 #endif
 
 static const char *g_raw_diag_reason =
@@ -206,7 +208,20 @@ int scout_platform_apply_lease(const scout_iface_t *iface, const scout_lease_t *
     }
 
 #if defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
-    errno = ENOTSUP;
+    uint8_t prefix_len = (uint8_t)scout_netmask_to_prefix(lease->subnet_mask);
+
+    if (scout_blueyos_netctl_addr_add(iface->ifindex, lease->address, prefix_len) != 0) {
+        return -1;
+    }
+
+    if (lease->router != 0 &&
+        scout_blueyos_netctl_route_add(iface->ifindex, 0, 0, lease->router, 0) != 0) {
+        return -1;
+    }
+
+    if (applied_live) {
+        *applied_live = 1;
+    }
     return 0;
 #else
     if (scout_platform_set_ipv4_addr(iface->name, lease->address, lease->subnet_mask) != 0) {

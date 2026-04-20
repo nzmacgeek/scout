@@ -24,17 +24,16 @@ DHCP client, DNS resolver configuration daemon, and basic network tools for Blue
 
 BlueyOS already exposes enough IPv4 UDP support for DHCP and DNS transactions, and both musl-blueyos and glibc-blueyos ship resolver headers that use `/etc/resolv.conf`.
 
-The current BlueyOS kernel still has two gaps that limit what `scout` can do live on-target:
+Current userland socket support does not expose the raw ICMP path required for fully native `ping` and `tracert`.
 
-1. `NETCTL_MSG_ADDR_*` and `NETCTL_MSG_ROUTE_*` are stubbed in the kernel control plane, so `scoutd` cannot yet apply IPv4 addresses and routes live through netctl.
-2. Current userland socket support does not expose the raw ICMP path required for fully native `ping` and `tracert`.
-
-`scoutd` therefore does the useful pieces immediately:
+`scoutd` provides full live network configuration on-target:
 
 - acquires and renews DHCP leases
-- writes `/etc/resolv.conf`
+- assigns the leased IPv4 address to the interface via `NETCTL_MSG_ADDR_NEW`
+- installs the default route via `NETCTL_MSG_ROUTE_NEW`
+- writes `/etc/resolv.conf` so name resolution works immediately after lease acquisition
 - persists the lease under `/var/lib/scout/lease`
-- writes a static `/etc/interfaces` snapshot so the lease information is preserved for future integration
+- writes a static `/etc/interfaces` snapshot for reference
 - brings the link up when the platform supports that operation
 
 On Linux hosts used for development, `ping` and `tracert` use standard raw-socket implementations. On current BlueyOS builds they exit with a clear unsupported message instead of silently faking success.

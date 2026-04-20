@@ -22,6 +22,8 @@
 #define NETCTL_MSG_NETDEV_GET 12
 #define NETCTL_MSG_NETDEV_SET 13
 #define NETCTL_MSG_NETDEV_LIST 14
+#define NETCTL_MSG_ADDR_NEW 20
+#define NETCTL_MSG_ROUTE_NEW 30
 #define NETCTL_MSG_DONE 2
 #define NETCTL_MSG_ERROR 1
 
@@ -32,6 +34,17 @@
 #define NETCTL_ATTR_MAC 13
 #define NETCTL_ATTR_FLAGS 14
 #define NETCTL_ATTR_CARRIER 15
+#define NETCTL_ATTR_ADDR_FAMILY 20
+#define NETCTL_ATTR_ADDR_VALUE 21
+#define NETCTL_ATTR_ADDR_PREFIX 22
+#define NETCTL_ATTR_ROUTE_DST 30
+#define NETCTL_ATTR_ROUTE_GW 31
+#define NETCTL_ATTR_ROUTE_OIF 32
+#define NETCTL_ATTR_ROUTE_METRIC 33
+#define NETCTL_ATTR_ROUTE_PREFIX 34
+#define NETCTL_ATTR_ROUTE_FAMILY 35
+
+#define NETCTL_AF_INET 2
 
 #define NETCTL_FLAG_UP 0x0001
 
@@ -279,6 +292,74 @@ int scout_blueyos_netctl_set_link_up(unsigned int ifindex, uint32_t flags)
     scout_netctl_init(req, NETCTL_MSG_NETDEV_SET, 2);
     if (scout_netctl_add_attr(req, sizeof(req), NETCTL_ATTR_IFINDEX, &ifindex, sizeof(ifindex)) != 0 ||
         scout_netctl_add_attr(req, sizeof(req), NETCTL_ATTR_FLAGS, &new_flags, sizeof(new_flags)) != 0) {
+        close(fd);
+        return -1;
+    }
+
+    rc = scout_netctl_exchange(fd, req, ((scout_netctl_header_t *)req)->msg_len, resp, sizeof(resp));
+    close(fd);
+    if (rc < (int)sizeof(*hdr) || hdr->msg_type == NETCTL_MSG_ERROR) {
+        errno = EIO;
+        return -1;
+    }
+
+    return 0;
+}
+
+int scout_blueyos_netctl_addr_add(unsigned int ifindex, uint32_t addr, uint8_t prefix_len)
+{
+    uint8_t req[256];
+    uint8_t resp[256];
+    scout_netctl_header_t *hdr = (scout_netctl_header_t *)resp;
+    uint16_t family = NETCTL_AF_INET;
+    int fd;
+    int rc;
+
+    fd = scout_netctl_open();
+    if (fd < 0) {
+        return -1;
+    }
+
+    scout_netctl_init(req, NETCTL_MSG_ADDR_NEW, 3);
+    if (scout_netctl_add_attr(req, sizeof(req), NETCTL_ATTR_IFINDEX, &ifindex, sizeof(ifindex)) != 0 ||
+        scout_netctl_add_attr(req, sizeof(req), NETCTL_ATTR_ADDR_FAMILY, &family, sizeof(family)) != 0 ||
+        scout_netctl_add_attr(req, sizeof(req), NETCTL_ATTR_ADDR_VALUE, &addr, sizeof(addr)) != 0 ||
+        scout_netctl_add_attr(req, sizeof(req), NETCTL_ATTR_ADDR_PREFIX, &prefix_len, sizeof(prefix_len)) != 0) {
+        close(fd);
+        return -1;
+    }
+
+    rc = scout_netctl_exchange(fd, req, ((scout_netctl_header_t *)req)->msg_len, resp, sizeof(resp));
+    close(fd);
+    if (rc < (int)sizeof(*hdr) || hdr->msg_type == NETCTL_MSG_ERROR) {
+        errno = EIO;
+        return -1;
+    }
+
+    return 0;
+}
+
+int scout_blueyos_netctl_route_add(unsigned int ifindex, uint32_t dst, uint8_t prefix_len, uint32_t gw, uint32_t metric)
+{
+    uint8_t req[256];
+    uint8_t resp[256];
+    scout_netctl_header_t *hdr = (scout_netctl_header_t *)resp;
+    uint16_t family = NETCTL_AF_INET;
+    int fd;
+    int rc;
+
+    fd = scout_netctl_open();
+    if (fd < 0) {
+        return -1;
+    }
+
+    scout_netctl_init(req, NETCTL_MSG_ROUTE_NEW, 4);
+    if (scout_netctl_add_attr(req, sizeof(req), NETCTL_ATTR_ROUTE_FAMILY, &family, sizeof(family)) != 0 ||
+        scout_netctl_add_attr(req, sizeof(req), NETCTL_ATTR_ROUTE_DST, &dst, sizeof(dst)) != 0 ||
+        scout_netctl_add_attr(req, sizeof(req), NETCTL_ATTR_ROUTE_PREFIX, &prefix_len, sizeof(prefix_len)) != 0 ||
+        scout_netctl_add_attr(req, sizeof(req), NETCTL_ATTR_ROUTE_GW, &gw, sizeof(gw)) != 0 ||
+        scout_netctl_add_attr(req, sizeof(req), NETCTL_ATTR_ROUTE_OIF, &ifindex, sizeof(ifindex)) != 0 ||
+        scout_netctl_add_attr(req, sizeof(req), NETCTL_ATTR_ROUTE_METRIC, &metric, sizeof(metric)) != 0) {
         close(fd);
         return -1;
     }
