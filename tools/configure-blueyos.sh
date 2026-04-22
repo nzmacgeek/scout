@@ -34,7 +34,12 @@ fi
 
 mkdir -p "${BUILD_DIR}"
 
-if [ -z "${HOST}" ] && [ "${LIBC}" = "musl" ]; then
+if [ -z "${HOST}" ]; then
+  if [ -n "${CC_INPUT}" ]; then
+    HOST="$("${CC_INPUT}" -dumpmachine 2>/dev/null || true)"
+  fi
+fi
+if [ -z "${HOST}" ]; then
   HOST="i686-linux-gnu"
 fi
 
@@ -44,7 +49,8 @@ if [ -z "${CC_INPUT}" ]; then
   elif command -v "${HOST}-gcc" >/dev/null 2>&1; then
     CC_INPUT="$(command -v "${HOST}-gcc")"
   else
-    CC_INPUT="gcc"
+    echo "[configure-blueyos] error: no cross-compiler for host '${HOST}' found; install it or pass CC= or --cc= explicitly" >&2
+    exit 1
   fi
 fi
 
@@ -59,9 +65,18 @@ if [ -n "${HOST}" ]; then
   fi
 fi
 
+# The biscuits kernel's ELF loader only supports ET_EXEC (static non-PIE).
+# Force static, non-PIE output for all musl (BlueyOS) builds.
+if [ "${LIBC}" = "musl" ]; then
+    CFLAGS="${CFLAGS:+$CFLAGS }-fno-pic -fno-pie"
+    LDFLAGS="${LDFLAGS:+$LDFLAGS }-static -no-pie"
+fi
+
 exec env \
   PACKAGE_BUILD_NUMBER="${PACKAGE_BUILD_NUMBER}" \
   CC="${CC_INPUT}" \
+  CFLAGS="${CFLAGS}" \
+  LDFLAGS="${LDFLAGS}" \
   "${REPO_DIR}/configure" \
     --prefix=/usr \
     --sysconfdir=/etc \
