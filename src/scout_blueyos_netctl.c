@@ -5,8 +5,13 @@
 
 #if defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
 
+/* Compile-time debug tracing — always on for BlueyOS diagnostic builds */
+#define NETCTL_DBG(fmt, ...) \
+    fprintf(stderr, "[netctl dbg %s:%d] " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+
 #include <errno.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
@@ -103,12 +108,17 @@ static int scout_netctl_add_attr(void *msg, size_t msg_size, uint16_t type, cons
 
 static int scout_netctl_open(void)
 {
+    int fd;
 #ifdef SYS_socket
-    return (int)syscall(SYS_socket, BLUEY_AF_NETCTL, BLUEY_SOCK_NETCTL, 0);
+    NETCTL_DBG("scout_netctl_open: syscall(SYS_socket, AF_NETCTL=%d, SOCK_NETCTL=%d, 0)", BLUEY_AF_NETCTL, BLUEY_SOCK_NETCTL);
+    fd = (int)syscall(SYS_socket, BLUEY_AF_NETCTL, BLUEY_SOCK_NETCTL, 0);
 #else
     long args[6] = { BLUEY_AF_NETCTL, BLUEY_SOCK_NETCTL, 0, 0, 0, 0 };
-    return (int)syscall(SYS_socketcall, 1, args);
+    NETCTL_DBG("scout_netctl_open: syscall(SYS_socketcall, AF_NETCTL=%d, SOCK_NETCTL=%d)", BLUEY_AF_NETCTL, BLUEY_SOCK_NETCTL);
+    fd = (int)syscall(SYS_socketcall, 1, args);
 #endif
+    NETCTL_DBG("scout_netctl_open: fd=%d errno=%d (%s)", fd, errno, strerror(errno));
+    return fd;
 }
 
 static int scout_netctl_exchange(int fd, void *req, size_t req_len, void *resp, size_t resp_len)
@@ -117,6 +127,8 @@ static int scout_netctl_exchange(int fd, void *req, size_t req_len, void *resp, 
     struct msghdr msg;
     ssize_t sent;
     ssize_t got;
+
+    NETCTL_DBG("scout_netctl_exchange: fd=%d req_len=%zu resp_len=%zu", fd, req_len, resp_len);
 
     memset(&iov, 0, sizeof(iov));
     memset(&msg, 0, sizeof(msg));
@@ -127,15 +139,19 @@ static int scout_netctl_exchange(int fd, void *req, size_t req_len, void *resp, 
 
     sent = sendmsg(fd, &msg, 0);
     if (sent < 0) {
+        NETCTL_DBG("scout_netctl_exchange: sendmsg FAILED errno=%d (%s)", errno, strerror(errno));
         return -1;
     }
+    NETCTL_DBG("scout_netctl_exchange: sendmsg OK sent=%zd", sent);
 
     iov.iov_base = resp;
     iov.iov_len = resp_len;
     got = recvmsg(fd, &msg, 0);
     if (got < 0) {
+        NETCTL_DBG("scout_netctl_exchange: recvmsg FAILED errno=%d (%s)", errno, strerror(errno));
         return -1;
     }
+    NETCTL_DBG("scout_netctl_exchange: recvmsg OK got=%zd", got);
 
     return (int)got;
 }
@@ -211,8 +227,11 @@ int scout_blueyos_netctl_get_interface(const char *ifname, scout_iface_t *iface)
     int fd;
     int rc = -1;
 
+    NETCTL_DBG("get_interface: ifname=%s", ifname ? ifname : "(null)");
+
     if (!ifname || !iface) {
         errno = EINVAL;
+        NETCTL_DBG("get_interface: EINVAL");
         return -1;
     }
 
@@ -220,25 +239,33 @@ int scout_blueyos_netctl_get_interface(const char *ifname, scout_iface_t *iface)
 
     fd = scout_netctl_open();
     if (fd < 0) {
+        NETCTL_DBG("get_interface: netctl_open FAILED fd=%d errno=%d", fd, errno);
         return -1;
     }
+    NETCTL_DBG("get_interface: netctl_open OK fd=%d", fd);
 
     scout_netctl_init(req, NETCTL_MSG_NETDEV_LIST, 1);
     rc = scout_netctl_exchange(fd, req, sizeof(scout_netctl_header_t), resp, sizeof(resp));
+    NETCTL_DBG("get_interface: exchange rc=%d hdr->msg_type=%u hdr->msg_len=%u",
+               rc, rc >= (int)sizeof(*hdr) ? hdr->msg_type : 0xFFFF,
+               rc >= (int)sizeof(*hdr) ? hdr->msg_len : 0);
     if (rc < (int)sizeof(*hdr)) {
         close(fd);
         errno = EIO;
+        NETCTL_DBG("get_interface: exchange response too short (rc=%d need=%zu)", rc, sizeof(*hdr));
         return -1;
     }
 
     if (hdr->msg_type == NETCTL_MSG_ERROR) {
         close(fd);
         errno = EIO;
+        NETCTL_DBG("get_interface: NETCTL_MSG_ERROR returned by kernel");
         return -1;
     }
 
     cur = resp + sizeof(*hdr);
     remaining = hdr->msg_len - sizeof(*hdr);
+    NETCTL_DBG("get_interface: scanning %zu bytes of attrs for '%s'", remaining, ifname);
 
     while (remaining >= sizeof(scout_netctl_attr_t)) {
         const scout_netctl_attr_t *attr = (const scout_netctl_attr_t *)cur;
@@ -247,6 +274,7 @@ int scout_blueyos_netctl_get_interface(const char *ifname, scout_iface_t *iface)
         size_t aligned_len;
 
         if (attr->attr_len < sizeof(*attr) || attr->attr_len > remaining) {
+            NETCTL_DBG("get_interface: attr_len=%u malformed, stopping", attr->attr_len);
             break;
         }
 
@@ -256,9 +284,11 @@ int scout_blueyos_netctl_get_interface(const char *ifname, scout_iface_t *iface)
 
         if (attr->attr_type == NETCTL_ATTR_NESTED) {
             scout_netctl_parse_iface_attrs((const scout_netctl_attr_t *)(cur + sizeof(*attr)), payload_len, &candidate);
+            NETCTL_DBG("get_interface: found iface '%s' (looking for '%s')", candidate.name, ifname);
             if (strcmp(candidate.name, ifname) == 0) {
                 *iface = candidate;
                 close(fd);
+                NETCTL_DBG("get_interface: match found, returning OK");
                 return 0;
             }
         }
@@ -272,6 +302,7 @@ int scout_blueyos_netctl_get_interface(const char *ifname, scout_iface_t *iface)
 
     close(fd);
     errno = ENODEV;
+    NETCTL_DBG("get_interface: '%s' not found in kernel netdev list, errno=ENODEV", ifname);
     return -1;
 }
 
