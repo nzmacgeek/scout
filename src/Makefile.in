@@ -90,7 +90,8 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 sbin_PROGRAMS = scoutd$(EXEEXT)
-bin_PROGRAMS = nslookup$(EXEEXT) ping$(EXEEXT) tracert$(EXEEXT)
+bin_PROGRAMS = nslookup$(EXEEXT) ping$(EXEEXT) tracert$(EXEEXT) \
+	scoutctl$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -122,6 +123,9 @@ nslookup_DEPENDENCIES = libscoutcommon.a
 am_ping_OBJECTS = ping.$(OBJEXT)
 ping_OBJECTS = $(am_ping_OBJECTS)
 ping_DEPENDENCIES = libscoutcommon.a
+am_scoutctl_OBJECTS = scoutctl.$(OBJEXT)
+scoutctl_OBJECTS = $(am_scoutctl_OBJECTS)
+scoutctl_DEPENDENCIES = libscoutcommon.a
 am_scoutd_OBJECTS = scoutd.$(OBJEXT)
 scoutd_OBJECTS = $(am_scoutd_OBJECTS)
 scoutd_DEPENDENCIES = libscoutcommon.a
@@ -147,7 +151,8 @@ am__depfiles_remade = ./$(DEPDIR)/common.Po ./$(DEPDIR)/nslookup.Po \
 	./$(DEPDIR)/ping.Po ./$(DEPDIR)/scout_blueyos_netctl.Po \
 	./$(DEPDIR)/scout_config.Po ./$(DEPDIR)/scout_dhcp.Po \
 	./$(DEPDIR)/scout_files.Po ./$(DEPDIR)/scout_platform.Po \
-	./$(DEPDIR)/scoutd.Po ./$(DEPDIR)/tracert.Po
+	./$(DEPDIR)/scoutctl.Po ./$(DEPDIR)/scoutd.Po \
+	./$(DEPDIR)/tracert.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -162,9 +167,11 @@ am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
 SOURCES = $(libscoutcommon_a_SOURCES) $(nslookup_SOURCES) \
-	$(ping_SOURCES) $(scoutd_SOURCES) $(tracert_SOURCES)
+	$(ping_SOURCES) $(scoutctl_SOURCES) $(scoutd_SOURCES) \
+	$(tracert_SOURCES)
 DIST_SOURCES = $(libscoutcommon_a_SOURCES) $(nslookup_SOURCES) \
-	$(ping_SOURCES) $(scoutd_SOURCES) $(tracert_SOURCES)
+	$(ping_SOURCES) $(scoutctl_SOURCES) $(scoutd_SOURCES) \
+	$(tracert_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -316,6 +323,8 @@ ping_SOURCES = ping.c
 ping_LDADD = libscoutcommon.a
 tracert_SOURCES = tracert.c
 tracert_LDADD = libscoutcommon.a
+scoutctl_SOURCES = scoutctl.c
+scoutctl_LDADD = libscoutcommon.a
 all: all-am
 
 .SUFFIXES:
@@ -450,6 +459,10 @@ ping$(EXEEXT): $(ping_OBJECTS) $(ping_DEPENDENCIES) $(EXTRA_ping_DEPENDENCIES)
 	@rm -f ping$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(ping_OBJECTS) $(ping_LDADD) $(LIBS)
 
+scoutctl$(EXEEXT): $(scoutctl_OBJECTS) $(scoutctl_DEPENDENCIES) $(EXTRA_scoutctl_DEPENDENCIES) 
+	@rm -f scoutctl$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(scoutctl_OBJECTS) $(scoutctl_LDADD) $(LIBS)
+
 scoutd$(EXEEXT): $(scoutd_OBJECTS) $(scoutd_DEPENDENCIES) $(EXTRA_scoutd_DEPENDENCIES) 
 	@rm -f scoutd$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(scoutd_OBJECTS) $(scoutd_LDADD) $(LIBS)
@@ -472,6 +485,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/scout_dhcp.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/scout_files.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/scout_platform.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/scoutctl.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/scoutd.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tracert.Po@am__quote@ # am--include-marker
 
@@ -632,6 +646,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/scout_dhcp.Po
 	-rm -f ./$(DEPDIR)/scout_files.Po
 	-rm -f ./$(DEPDIR)/scout_platform.Po
+	-rm -f ./$(DEPDIR)/scoutctl.Po
 	-rm -f ./$(DEPDIR)/scoutd.Po
 	-rm -f ./$(DEPDIR)/tracert.Po
 	-rm -f Makefile
@@ -687,6 +702,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/scout_dhcp.Po
 	-rm -f ./$(DEPDIR)/scout_files.Po
 	-rm -f ./$(DEPDIR)/scout_platform.Po
+	-rm -f ./$(DEPDIR)/scoutctl.Po
 	-rm -f ./$(DEPDIR)/scoutd.Po
 	-rm -f ./$(DEPDIR)/tracert.Po
 	-rm -f Makefile

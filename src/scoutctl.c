@@ -82,6 +82,12 @@ static int parse_cidr(const char *text, uint32_t *addr_out, uint8_t *prefix_out)
 }
 
 #if !defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
+static void copy_ifname(struct ifreq *ifr, const char *ifname)
+{
+    memset(ifr->ifr_name, 0, sizeof(ifr->ifr_name));
+    strncpy(ifr->ifr_name, ifname, sizeof(ifr->ifr_name) - 1);
+}
+
 static int read_text_file(const char *path, char *buf, size_t buf_size)
 {
     FILE *fp;
@@ -253,7 +259,7 @@ static int iface_set(const char *ifname, int up)
     }
 
     memset(&ifr, 0, sizeof(ifr));
-    snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", ifname);
+    copy_ifname(&ifr, ifname);
 
     if (ioctl(fd, SIOCGIFFLAGS, &ifr) != 0) {
         scout_log_errno("ERROR", "reading interface flags");
@@ -474,7 +480,7 @@ static int dhcp_release(const scout_config_t *cfg)
     }
 
     memset(&ifr, 0, sizeof(ifr));
-    snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", cfg->interface);
+    copy_ifname(&ifr, cfg->interface);
 
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;
