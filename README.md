@@ -17,6 +17,7 @@ DHCP client, DNS resolver configuration daemon, and basic network tools for Blue
 | `/usr/bin/nslookup` | resolver lookup tool |
 | `/usr/bin/ping` | ICMP echo tool when the target supports raw sockets |
 | `/usr/bin/tracert` | traceroute-style diagnostic when the target supports raw sockets |
+| `/usr/bin/scoutctl` | interface, route, DHCP, and DNS cache helper CLI |
 | `/etc/scout/scout.conf` | daemon configuration |
 | `/etc/claw/services.d/scout.service.yml` | claw service definition |
 
@@ -114,6 +115,7 @@ This copies:
 - `/usr/bin/nslookup`
 - `/usr/bin/ping`
 - `/usr/bin/tracert`
+- `/usr/bin/scoutctl`
 - `/etc/scout/scout.conf`
 - `/etc/claw/services.d/scout.service.yml`
 
@@ -144,3 +146,23 @@ persist_interfaces=yes
 ```
 
 It logs to stderr so claw can capture and supervise it directly.
+
+## Diagnostic and network control helper
+
+`scoutctl` adds basic interface and route diagnostics plus operational helpers:
+
+```bash
+scoutctl iface show [IFACE]
+scoutctl iface up IFACE
+scoutctl iface down IFACE
+scoutctl route show
+scoutctl route add DEST[/PREFIX]|default GATEWAY IFACE [METRIC]
+scoutctl route del DEST[/PREFIX]|default GATEWAY IFACE [METRIC]
+scoutctl dhcp renew [-c /etc/scout/scout.conf]
+scoutctl dhcp release [-c /etc/scout/scout.conf]
+scoutctl dns flush
+```
+
+On native Linux developer builds, `iface show` reports IPv4 and IPv6 addresses and can display multiple addresses assigned to one interface.
+
+`dns flush` tries `resolvectl`, `systemd-resolve`, then `nscd` if present; if none are available it exits successfully with a message.
