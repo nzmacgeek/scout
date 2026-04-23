@@ -65,18 +65,27 @@ if [ -n "${HOST}" ]; then
   fi
 fi
 
-# The biscuits kernel's ELF loader only supports ET_EXEC (static non-PIE).
+# The BlueyOS ELF loader only supports ET_EXEC (static non-PIE).
 # Force static, non-PIE output for all musl (BlueyOS) builds.
 if [ "${LIBC}" = "musl" ]; then
-    CFLAGS="${CFLAGS:+$CFLAGS }-fno-pic -fno-pie"
-    LDFLAGS="${LDFLAGS:+$LDFLAGS }-static -no-pie"
+    CFLAGS="${CFLAGS-} -fno-pic -fno-pie"
+    LDFLAGS="${LDFLAGS-} -static -no-pie"
+fi
+
+# Build env args, only passing CFLAGS/LDFLAGS when set.
+env_args=(
+  PACKAGE_BUILD_NUMBER="${PACKAGE_BUILD_NUMBER}"
+  CC="${CC_INPUT}"
+)
+if [ -n "${CFLAGS+set}" ]; then
+  env_args+=(CFLAGS="${CFLAGS-}")
+fi
+if [ -n "${LDFLAGS+set}" ]; then
+  env_args+=(LDFLAGS="${LDFLAGS-}")
 fi
 
 exec env \
-  PACKAGE_BUILD_NUMBER="${PACKAGE_BUILD_NUMBER}" \
-  CC="${CC_INPUT}" \
-  CFLAGS="${CFLAGS}" \
-  LDFLAGS="${LDFLAGS}" \
+  "${env_args[@]}" \
   "${REPO_DIR}/configure" \
     --prefix=/usr \
     --sysconfdir=/etc \

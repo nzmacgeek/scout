@@ -13,9 +13,13 @@
 #include <string.h>
 #include <unistd.h>
 
-/* Compile-time debug tracing — always on for BlueyOS diagnostic builds */
+/* Compile-time debug tracing — enabled only when SCOUT_TRACE is defined */
+#ifdef SCOUT_TRACE
 #define SCOUT_DBG(fmt, ...) \
-    fprintf(stderr, "[scoutd dbg %s:%d] " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+    scout_log_message("DEBUG", "[scoutd dbg %s:%d] " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
+#else
+#define SCOUT_DBG(fmt, ...) ((void)0)
+#endif
 
 static volatile sig_atomic_t g_stop = 0;
 static volatile sig_atomic_t g_reload = 0;

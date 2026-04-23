@@ -5,9 +5,17 @@
 
 #if defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
 
-/* Compile-time debug tracing — always on for BlueyOS diagnostic builds */
+/*
+ * Compile-time debug tracing for BlueyOS netctl.
+ * Disabled by default so production builds do not emit per-syscall traces
+ * or expose source/build paths via __FILE__ unless explicitly requested.
+ */
+#if defined(SCOUT_BLUEYOS_NETCTL_TRACE)
 #define NETCTL_DBG(fmt, ...) \
     fprintf(stderr, "[netctl dbg %s:%d] " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+#else
+#define NETCTL_DBG(...) ((void)0)
+#endif
 
 #include <errno.h>
 #include <stddef.h>
@@ -117,7 +125,12 @@ static int scout_netctl_open(void)
     NETCTL_DBG("scout_netctl_open: syscall(SYS_socketcall, AF_NETCTL=%d, SOCK_NETCTL=%d)", BLUEY_AF_NETCTL, BLUEY_SOCK_NETCTL);
     fd = (int)syscall(SYS_socketcall, 1, args);
 #endif
-    NETCTL_DBG("scout_netctl_open: fd=%d errno=%d (%s)", fd, errno, strerror(errno));
+    if (fd < 0) {
+        int saved_errno = errno;
+        NETCTL_DBG("scout_netctl_open: FAILED fd=%d errno=%d (%s)", fd, saved_errno, strerror(saved_errno));
+    } else {
+        NETCTL_DBG("scout_netctl_open: OK fd=%d", fd);
+    }
     return fd;
 }
 
@@ -264,6 +277,12 @@ int scout_blueyos_netctl_get_interface(const char *ifname, scout_iface_t *iface)
     }
 
     cur = resp + sizeof(*hdr);
+    if (hdr->msg_len < sizeof(*hdr) || hdr->msg_len > (uint32_t)rc) {
+        close(fd);
+        errno = EIO;
+        NETCTL_DBG("get_interface: msg_len=%u out of range (sizeof hdr=%zu rc=%d)", hdr->msg_len, sizeof(*hdr), rc);
+        return -1;
+    }
     remaining = hdr->msg_len - sizeof(*hdr);
     NETCTL_DBG("get_interface: scanning %zu bytes of attrs for '%s'", remaining, ifname);
 
