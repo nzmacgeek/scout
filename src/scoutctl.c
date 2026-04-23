@@ -5,6 +5,7 @@
 #include "scout_platform.h"
 
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,6 +23,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
+
+#define DEFAULT_ROUTE_METRIC 0u
+#define EXEC_FAILURE_EXIT_CODE 127
 
 static void usage(FILE *stream)
 {
@@ -44,7 +48,8 @@ static int parse_cidr(const char *text, uint32_t *addr_out, uint8_t *prefix_out)
     char tmp[64];
     char *slash;
     uint32_t addr;
-    uint32_t prefix = 32;
+    uint32_t prefix_len = 32;
+    size_t text_len;
 
     if (!text || !addr_out || !prefix_out) {
         errno = EINVAL;
@@ -57,15 +62,17 @@ static int parse_cidr(const char *text, uint32_t *addr_out, uint8_t *prefix_out)
         return 0;
     }
 
-    if (snprintf(tmp, sizeof(tmp), "%s", text) >= (int)sizeof(tmp)) {
+    text_len = strlen(text);
+    if (text_len > sizeof(tmp) - 1u) {
         errno = ENAMETOOLONG;
         return -1;
     }
+    memcpy(tmp, text, text_len + 1u);
 
     slash = strchr(tmp, '/');
     if (slash) {
         *slash = '\0';
-        if (scout_parse_u32(slash + 1, &prefix) != 0 || prefix > 32u) {
+        if (scout_parse_u32(slash + 1, &prefix_len) != 0 || prefix_len > 32u) {
             errno = EINVAL;
             return -1;
         }
@@ -77,7 +84,7 @@ static int parse_cidr(const char *text, uint32_t *addr_out, uint8_t *prefix_out)
     }
 
     *addr_out = addr;
-    *prefix_out = (uint8_t)prefix;
+    *prefix_out = (uint8_t)prefix_len;
     return 0;
 }
 
@@ -320,6 +327,12 @@ static int route_apply(const char *op, uint32_t dst, uint8_t prefix_len, uint32_
     if (gateway != 0) {
         route.rt_flags |= RTF_GATEWAY;
     }
+    /* metric is parsed as uint32_t, so only the upper signed-short bound is relevant. */
+    if (metric > (uint32_t)SHRT_MAX) {
+        close(fd);
+        errno = ERANGE;
+        return -1;
+    }
     route.rt_metric = (short)metric;
     route.rt_dev = (char *)ifname;
 
@@ -361,6 +374,7 @@ static int route_show(void)
         char dst_text[32];
         char gw_text[32];
 
+        /* /proc/net/route columns used: Iface Destination Gateway Flags Metric Mask. */
         if (sscanf(line, "%31s %lx %lx %lx %*s %*s %d %lx",
                    ifname, &dst, &gw, &flags, &metric, &mask) != 6) {
             continue;
@@ -386,7 +400,7 @@ static int route_command(int argc, char **argv)
     uint32_t dst;
     uint8_t prefix;
     uint32_t gateway;
-    uint32_t metric = 0;
+    uint32_t metric = DEFAULT_ROUTE_METRIC;
 
     if (argc < 1) {
         usage(stderr);
@@ -430,8 +444,8 @@ static int run_child(char *const argv[])
     }
 
     if (pid == 0) {
-        execv(argv[0], argv);
-        _exit(127);
+        execvp(argv[0], argv);
+        _exit(EXEC_FAILURE_EXIT_CODE);
     }
 
     if (waitpid(pid, &status, 0) < 0) {
@@ -484,7 +498,7 @@ static int dhcp_release(const scout_config_t *cfg)
 
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;
-    sin.sin_addr.s_addr = htonl(0);
+    sin.sin_addr.s_addr = htonl(INADDR_ANY);
     memcpy(&ifr.ifr_addr, &sin, sizeof(sin));
     if (ioctl(fd, SIOCSIFADDR, &ifr) != 0) {
         scout_log_errno("WARN", "clearing interface address");
@@ -519,7 +533,7 @@ static int dhcp_command(int argc, char **argv)
         char *renew_argv[6];
         int idx = 0;
 
-        renew_argv[idx++] = "/sbin/scoutd";
+        renew_argv[idx++] = "scoutd";
         renew_argv[idx++] = "-1";
         if (cfg_path) {
             renew_argv[idx++] = "-c";
