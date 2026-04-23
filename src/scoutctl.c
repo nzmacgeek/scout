@@ -26,6 +26,8 @@
 
 #define DEFAULT_ROUTE_METRIC 0u
 #define EXEC_FAILURE_EXIT_CODE 127
+#define SCOUTD_PATH "/sbin/scoutd"
+#define SCOUTD_FALLBACK "scoutd"
 
 static void usage(FILE *stream)
 {
@@ -448,13 +450,19 @@ static int run_child(char *const argv[])
         _exit(EXEC_FAILURE_EXIT_CODE);
     }
 
-    if (waitpid(pid, &status, 0) < 0) {
-        return -1;
+    while (waitpid(pid, &status, 0) < 0) {
+        if (errno != EINTR) {
+            return -1;
+        }
     }
     if (WIFEXITED(status)) {
         return WEXITSTATUS(status);
     }
-    errno = ECHILD;
+    if (WIFSIGNALED(status)) {
+        return 128 + WTERMSIG(status);
+    }
+
+    errno = EIO;
     return -1;
 }
 
@@ -473,6 +481,8 @@ static int load_config(const char *path, scout_config_t *cfg)
     return 0;
 }
 
+static int command_exists(const char *path);
+
 static int dhcp_release(const scout_config_t *cfg)
 {
     int fd;
@@ -490,7 +500,7 @@ static int dhcp_release(const scout_config_t *cfg)
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) {
         scout_log_errno("WARN", "opening interface socket for release");
-        return 0;
+        return 1;
     }
 
     memset(&ifr, 0, sizeof(ifr));
@@ -533,7 +543,7 @@ static int dhcp_command(int argc, char **argv)
         char *renew_argv[6];
         int idx = 0;
 
-        renew_argv[idx++] = "scoutd";
+        renew_argv[idx++] = command_exists(SCOUTD_PATH) ? SCOUTD_PATH : SCOUTD_FALLBACK;
         renew_argv[idx++] = "-1";
         if (cfg_path) {
             renew_argv[idx++] = "-c";
