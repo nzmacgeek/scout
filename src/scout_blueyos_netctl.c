@@ -356,6 +356,108 @@ int scout_blueyos_netctl_set_link_up(unsigned int ifindex, uint32_t flags)
     return 0;
 }
 
+int scout_blueyos_netctl_set_link_down(unsigned int ifindex, uint32_t flags)
+{
+    uint8_t req[256];
+    uint8_t resp[256];
+    scout_netctl_header_t *hdr = (scout_netctl_header_t *)resp;
+    int fd;
+    int rc;
+    uint32_t new_flags = flags & ~(uint32_t)NETCTL_FLAG_UP;
+
+    fd = scout_netctl_open();
+    if (fd < 0) {
+        return -1;
+    }
+
+    scout_netctl_init(req, NETCTL_MSG_NETDEV_SET, 2);
+    if (scout_netctl_add_attr(req, sizeof(req), NETCTL_ATTR_IFINDEX, &ifindex, sizeof(ifindex)) != 0 ||
+        scout_netctl_add_attr(req, sizeof(req), NETCTL_ATTR_FLAGS, &new_flags, sizeof(new_flags)) != 0) {
+        close(fd);
+        return -1;
+    }
+
+    rc = scout_netctl_exchange(fd, req, ((scout_netctl_header_t *)req)->msg_len, resp, sizeof(resp));
+    close(fd);
+    if (rc < (int)sizeof(*hdr) || hdr->msg_type == NETCTL_MSG_ERROR) {
+        errno = EIO;
+        return -1;
+    }
+
+    return 0;
+}
+
+int scout_blueyos_netctl_list_interfaces(int (*cb)(const scout_iface_t *, void *), void *userdata)
+{
+    uint8_t req[sizeof(scout_netctl_header_t)];
+    uint8_t resp[4096];
+    scout_netctl_header_t *hdr = (scout_netctl_header_t *)resp;
+    const uint8_t *cur;
+    size_t remaining;
+    int fd;
+    int rc;
+
+    fd = scout_netctl_open();
+    if (fd < 0) {
+        return -1;
+    }
+
+    scout_netctl_init(req, NETCTL_MSG_NETDEV_LIST, 1);
+    rc = scout_netctl_exchange(fd, req, sizeof(scout_netctl_header_t), resp, sizeof(resp));
+    close(fd);
+
+    if (rc < (int)sizeof(*hdr)) {
+        errno = EIO;
+        return -1;
+    }
+
+    if (hdr->msg_type == NETCTL_MSG_ERROR) {
+        errno = EIO;
+        return -1;
+    }
+
+    if (hdr->msg_len < sizeof(*hdr) || hdr->msg_len > (uint32_t)rc) {
+        errno = EIO;
+        return -1;
+    }
+
+    cur = resp + sizeof(*hdr);
+    remaining = hdr->msg_len - sizeof(*hdr);
+
+    while (remaining >= sizeof(scout_netctl_attr_t)) {
+        const scout_netctl_attr_t *attr = (const scout_netctl_attr_t *)cur;
+        scout_iface_t candidate;
+        size_t payload_len;
+        size_t aligned_len;
+
+        if (attr->attr_len < sizeof(*attr) || attr->attr_len > remaining) {
+            break;
+        }
+
+        aligned_len = scout_netctl_attr_align(attr->attr_len);
+        payload_len = attr->attr_len - sizeof(*attr);
+
+        if (attr->attr_type == NETCTL_ATTR_NESTED) {
+            memset(&candidate, 0, sizeof(candidate));
+            scout_netctl_parse_iface_attrs(
+                (const scout_netctl_attr_t *)(cur + sizeof(*attr)),
+                payload_len,
+                &candidate);
+            if (cb(&candidate, userdata) != 0) {
+                break;
+            }
+        }
+
+        if (aligned_len > remaining) {
+            break;
+        }
+        cur += aligned_len;
+        remaining -= aligned_len;
+    }
+
+    return 0;
+}
+
 int scout_blueyos_netctl_addr_add(unsigned int ifindex, uint32_t addr, uint8_t prefix_len)
 {
     uint8_t req[256];

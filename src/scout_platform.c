@@ -120,6 +120,74 @@ int scout_platform_set_link_up(const scout_iface_t *iface)
 #endif
 }
 
+int scout_platform_set_link_down(const scout_iface_t *iface)
+{
+#if defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
+    return scout_blueyos_netctl_set_link_down(iface->ifindex, iface->flags);
+#else
+    int fd;
+    struct ifreq ifr;
+
+    if (!iface) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd < 0) {
+        return -1;
+    }
+
+    memset(&ifr, 0, sizeof(ifr));
+    scout_platform_copy_ifname(&ifr, iface->name);
+    if (ioctl(fd, SIOCGIFFLAGS, &ifr) != 0) {
+        close(fd);
+        return -1;
+    }
+
+    ifr.ifr_flags &= (short)~IFF_UP;
+    if (ioctl(fd, SIOCSIFFLAGS, &ifr) != 0) {
+        close(fd);
+        return -1;
+    }
+
+    close(fd);
+    return 0;
+#endif
+}
+
+int scout_platform_list_interfaces(int (*cb)(const scout_iface_t *, void *), void *userdata)
+{
+#if defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
+    return scout_blueyos_netctl_list_interfaces(cb, userdata);
+#elif defined(HAVE_IF_NAMEINDEX)
+    struct if_nameindex *list;
+    struct if_nameindex *item;
+    scout_iface_t iface;
+
+    list = if_nameindex();
+    if (!list) {
+        return -1;
+    }
+
+    for (item = list; item && item->if_index != 0 && item->if_name; ++item) {
+        if (scout_platform_get_interface(item->if_name, &iface) == 0) {
+            if (cb(&iface, userdata) != 0) {
+                break;
+            }
+        }
+    }
+
+    if_freenameindex(list);
+    return 0;
+#else
+    (void)cb;
+    (void)userdata;
+    errno = ENOTSUP;
+    return -1;
+#endif
+}
+
 #if !defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
 static int scout_platform_set_sockaddr(struct sockaddr_in *sin, uint32_t addr)
 {
