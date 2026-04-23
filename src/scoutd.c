@@ -13,6 +13,14 @@
 #include <string.h>
 #include <unistd.h>
 
+/* Compile-time debug tracing — enabled only when SCOUT_TRACE is defined */
+#ifdef SCOUT_TRACE
+#define SCOUT_DBG(fmt, ...) \
+    scout_log_message("DEBUG", "[scoutd dbg %s:%d] " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
+#else
+#define SCOUT_DBG(fmt, ...) ((void)0)
+#endif
+
 static volatile sig_atomic_t g_stop = 0;
 static volatile sig_atomic_t g_reload = 0;
 
@@ -85,6 +93,7 @@ int main(int argc, char **argv)
     int oneshot = 0;
     int opt;
 
+    SCOUT_DBG("main: scoutd starting, argc=%d", argc);
     scout_set_program_name("scoutd");
 
     while ((opt = getopt(argc, argv, "1nc:h")) != -1) {
@@ -111,18 +120,28 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    SCOUT_DBG("main: loading config from %s", config_path);
     if (scout_config_load(config_path, &cfg) != 0) {
         scout_log_errno("ERROR", "loading configuration");
+        SCOUT_DBG("main: scout_config_load FAILED errno=%d (%s)", errno, strerror(errno));
         return 1;
     }
+    SCOUT_DBG("main: config loaded, interface=%s lease_file=%s", cfg.interface, cfg.lease_file);
 
+    SCOUT_DBG("main: resolving interface %s", cfg.interface);
     if (scout_platform_get_interface(cfg.interface, &iface) != 0) {
         scout_log_errno("ERROR", "resolving interface");
+        SCOUT_DBG("main: scout_platform_get_interface FAILED errno=%d (%s)", errno, strerror(errno));
         return 1;
     }
+    SCOUT_DBG("main: interface resolved, name=%s", iface.name);
 
+    SCOUT_DBG("main: bringing link up");
     if (scout_platform_set_link_up(&iface) != 0) {
         scout_log_errno("WARN", "bringing link up");
+        SCOUT_DBG("main: set_link_up FAILED (non-fatal) errno=%d (%s)", errno, strerror(errno));
+    } else {
+        SCOUT_DBG("main: link up OK");
     }
 
     scout_install_signal_handlers();
