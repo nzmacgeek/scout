@@ -131,6 +131,9 @@ static void print_if_flags(uint32_t flags)
     if (flags & IFF_BROADCAST) {
         printf(" BROADCAST");
     }
+    if (flags & IFF_LOOPBACK) {
+        printf(" LOOPBACK");
+    }
     if (flags & IFF_MULTICAST) {
         printf(" MULTICAST");
     }
