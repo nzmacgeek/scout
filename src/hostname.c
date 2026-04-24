@@ -3,11 +3,14 @@
 #include "common.h"
 
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
-#define HOSTNAME_MAX 64
+#ifndef HOST_NAME_MAX
+#define HOST_NAME_MAX 255
+#endif
 
 static void usage(FILE *stream)
 {
@@ -16,7 +19,7 @@ static void usage(FILE *stream)
 
 int main(int argc, char **argv)
 {
-    char name[HOSTNAME_MAX + 1];
+    char name[HOST_NAME_MAX + 1];
 
     scout_set_program_name("hostname");
 

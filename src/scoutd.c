@@ -130,7 +130,7 @@ int main(int argc, char **argv)
 
     if (cfg.hostname[0] != '\0') {
         if (sethostname(cfg.hostname, strlen(cfg.hostname)) != 0) {
-            scout_log_errno("WARN", "setting hostname");
+            scout_log_message("WARN", "setting hostname '%s': %s", cfg.hostname, strerror(errno));
         } else {
             scout_log_message("INFO", "hostname set to '%s'", cfg.hostname);
         }
