@@ -5,6 +5,9 @@
 
 #include "scout_types.h"
 
+/* Address family constant shared between the netctl implementation and callers. */
+#define NETCTL_AF_INET 2
+
 #if defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
 int scout_blueyos_netctl_get_interface(const char *ifname, scout_iface_t *iface);
 int scout_blueyos_netctl_list_interfaces(int (*cb)(const scout_iface_t *, void *), void *userdata);
