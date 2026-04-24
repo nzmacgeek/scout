@@ -20,7 +20,7 @@ libscoutcommon_a_SOURCES = \
 	scout_types.h
 
 sbin_PROGRAMS = scoutd
-bin_PROGRAMS = nslookup ping tracert scoutctl
+bin_PROGRAMS = nslookup ping tracert scoutctl hostname
 
 scoutd_SOURCES = scoutd.c
 scoutd_LDADD = libscoutcommon.a
@@ -36,3 +36,6 @@ tracert_LDADD = libscoutcommon.a
 
 scoutctl_SOURCES = scoutctl.c
 scoutctl_LDADD = libscoutcommon.a
+
+hostname_SOURCES = hostname.c
+hostname_LDADD = libscoutcommon.a

@@ -128,6 +128,17 @@ int main(int argc, char **argv)
     }
     SCOUT_DBG("main: config loaded, interface=%s lease_file=%s", cfg.interface, cfg.lease_file);
 
+    if (cfg.hostname[0] != '\0') {
+        if (sethostname(cfg.hostname, strlen(cfg.hostname)) != 0) {
+            scout_log_errno("WARN", "setting hostname");
+        } else {
+            scout_log_message("INFO", "hostname set to '%s'", cfg.hostname);
+        }
+        if (scout_write_hostname_file("/etc/hostname", cfg.hostname) != 0) {
+            scout_log_errno("WARN", "writing /etc/hostname");
+        }
+    }
+
     SCOUT_DBG("main: resolving interface %s", cfg.interface);
     if (scout_platform_get_interface(cfg.interface, &iface) != 0) {
         scout_log_errno("ERROR", "resolving interface");

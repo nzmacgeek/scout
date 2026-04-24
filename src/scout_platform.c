@@ -18,12 +18,7 @@
 #include "common.h"
 #endif
 
-static const char *g_raw_diag_reason =
-#if defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
-    "current BlueyOS builds do not expose the raw ICMP socket support required for ping/tracert";
-#else
-    "";
-#endif
+static const char *g_raw_diag_reason = "";
 
 #if !defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
 static void scout_platform_copy_ifname(struct ifreq *ifr, const char *ifname)
@@ -307,11 +302,7 @@ int scout_platform_apply_lease(const scout_iface_t *iface, const scout_lease_t *
 
 int scout_platform_raw_diag_supported(void)
 {
-#if defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
-    return 0;
-#else
     return 1;
-#endif
 }
 
 const char *scout_platform_raw_diag_reason(void)

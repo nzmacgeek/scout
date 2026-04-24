@@ -127,3 +127,15 @@ int scout_write_interfaces_snapshot(const char *path, const scout_iface_t *iface
              dns[0] ? "\n" : "");
     return scout_write_text_file_atomic(path, contents);
 }
+
+int scout_write_hostname_file(const char *path, const char *hostname)
+{
+    char contents[256];
+
+    if (!path || !hostname || hostname[0] == '\0') {
+        return 0;
+    }
+
+    snprintf(contents, sizeof(contents), "%s\n", hostname);
+    return scout_write_text_file_atomic(path, contents);
+}
