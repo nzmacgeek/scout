@@ -472,7 +472,7 @@ static int addr_print_cb(uint8_t family, uint32_t addr, uint8_t prefix_len, void
         return 0;
     }
 
-    in.s_addr = addr;
+    in.s_addr = htonl(addr);
     if (inet_ntop(AF_INET, &in, buf, sizeof(buf))) {
         printf("    addr: %s/%u\n", buf, (unsigned int)prefix_len);
         ctx->count++;
@@ -483,10 +483,17 @@ static int addr_print_cb(uint8_t family, uint32_t addr, uint8_t prefix_len, void
 static void print_iface_addresses(const scout_iface_t *iface)
 {
     addr_print_ctx_t ctx;
+    int saved_errno;
 
     ctx.count = 0;
+    errno = 0;
     if (scout_blueyos_netctl_list_addrs(iface->ifindex, addr_print_cb, &ctx) != 0) {
-        printf("    addr: (none)\n");
+        saved_errno = errno;
+        if (saved_errno != 0) {
+            printf("    addr: (unavailable: %s)\n", strerror(saved_errno));
+        } else {
+            printf("    addr: (unavailable)\n");
+        }
         return;
     }
     if (ctx.count == 0) {

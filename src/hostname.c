@@ -44,7 +44,17 @@ int main(int argc, char **argv)
     }
 
     if (argc == 2) {
-        if (sethostname(argv[1], strlen(argv[1])) != 0) {
+        size_t len = strlen(argv[1]);
+
+        if (len == 0) {
+            fprintf(stderr, "hostname: name must not be empty\n");
+            return 2;
+        }
+        if (len > HOST_NAME_MAX) {
+            fprintf(stderr, "hostname: name too long (max %d characters)\n", HOST_NAME_MAX);
+            return 2;
+        }
+        if (sethostname(argv[1], len) != 0) {
             fprintf(stderr, "hostname: %s\n", strerror(errno));
             return 1;
         }

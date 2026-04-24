@@ -3,6 +3,7 @@
 #include "common.h"
 #include "scout_files.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -131,11 +132,23 @@ int scout_write_interfaces_snapshot(const char *path, const scout_iface_t *iface
 int scout_write_hostname_file(const char *path, const char *hostname)
 {
     char contents[256];
+    int len;
 
-    if (!path || !hostname || hostname[0] == '\0') {
-        return 0;
+    if (!path || !hostname) {
+        errno = EINVAL;
+        return -1;
     }
 
-    snprintf(contents, sizeof(contents), "%s\n", hostname);
+    if (hostname[0] == '\0') {
+        errno = EINVAL;
+        return -1;
+    }
+
+    len = snprintf(contents, sizeof(contents), "%s\n", hostname);
+    if (len >= (int)sizeof(contents)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+
     return scout_write_text_file_atomic(path, contents);
 }
