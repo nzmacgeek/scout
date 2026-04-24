@@ -9,7 +9,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#if !defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/ip.h>
@@ -17,16 +16,13 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/time.h>
-#include <unistd.h>
-#endif
 
 static void usage(FILE *stream)
 {
     fprintf(stream, "Usage: ping [-c COUNT] HOST\n");
 }
 
-#if !defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
-static int ping_linux(const char *host, unsigned int count)
+static int ping_icmp(const char *host, unsigned int count)
 {
     struct addrinfo hints;
     struct addrinfo *res = NULL;
@@ -109,7 +105,6 @@ static int ping_linux(const char *host, unsigned int count)
     printf("%u packets transmitted, %u packets received\n", count, received);
     return received ? 0 : 1;
 }
-#endif
 
 int main(int argc, char **argv)
 {
@@ -147,9 +142,5 @@ int main(int argc, char **argv)
         return 2;
     }
 
-#if !defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
-    return ping_linux(argv[optind], count);
-#else
-    return 2;
-#endif
+    return ping_icmp(argv[optind], count);
 }

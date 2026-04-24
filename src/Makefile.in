@@ -91,7 +91,7 @@ build_triplet = @build@
 host_triplet = @host@
 sbin_PROGRAMS = scoutd$(EXEEXT)
 bin_PROGRAMS = nslookup$(EXEEXT) ping$(EXEEXT) tracert$(EXEEXT) \
-	scoutctl$(EXEEXT)
+	scoutctl$(EXEEXT) hostname$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -117,6 +117,9 @@ am_libscoutcommon_a_OBJECTS = common.$(OBJEXT) \
 	scout_dhcp.$(OBJEXT) scout_files.$(OBJEXT) \
 	scout_platform.$(OBJEXT)
 libscoutcommon_a_OBJECTS = $(am_libscoutcommon_a_OBJECTS)
+am_hostname_OBJECTS = hostname.$(OBJEXT)
+hostname_OBJECTS = $(am_hostname_OBJECTS)
+hostname_DEPENDENCIES = libscoutcommon.a
 am_nslookup_OBJECTS = nslookup.$(OBJEXT)
 nslookup_OBJECTS = $(am_nslookup_OBJECTS)
 nslookup_DEPENDENCIES = libscoutcommon.a
@@ -147,8 +150,9 @@ am__v_at_1 =
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = ./$(DEPDIR)/common.Po ./$(DEPDIR)/nslookup.Po \
-	./$(DEPDIR)/ping.Po ./$(DEPDIR)/scout_blueyos_netctl.Po \
+am__depfiles_remade = ./$(DEPDIR)/common.Po ./$(DEPDIR)/hostname.Po \
+	./$(DEPDIR)/nslookup.Po ./$(DEPDIR)/ping.Po \
+	./$(DEPDIR)/scout_blueyos_netctl.Po \
 	./$(DEPDIR)/scout_config.Po ./$(DEPDIR)/scout_dhcp.Po \
 	./$(DEPDIR)/scout_files.Po ./$(DEPDIR)/scout_platform.Po \
 	./$(DEPDIR)/scoutctl.Po ./$(DEPDIR)/scoutd.Po \
@@ -166,12 +170,12 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(libscoutcommon_a_SOURCES) $(nslookup_SOURCES) \
-	$(ping_SOURCES) $(scoutctl_SOURCES) $(scoutd_SOURCES) \
-	$(tracert_SOURCES)
-DIST_SOURCES = $(libscoutcommon_a_SOURCES) $(nslookup_SOURCES) \
-	$(ping_SOURCES) $(scoutctl_SOURCES) $(scoutd_SOURCES) \
-	$(tracert_SOURCES)
+SOURCES = $(libscoutcommon_a_SOURCES) $(hostname_SOURCES) \
+	$(nslookup_SOURCES) $(ping_SOURCES) $(scoutctl_SOURCES) \
+	$(scoutd_SOURCES) $(tracert_SOURCES)
+DIST_SOURCES = $(libscoutcommon_a_SOURCES) $(hostname_SOURCES) \
+	$(nslookup_SOURCES) $(ping_SOURCES) $(scoutctl_SOURCES) \
+	$(scoutd_SOURCES) $(tracert_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -325,6 +329,8 @@ tracert_SOURCES = tracert.c
 tracert_LDADD = libscoutcommon.a
 scoutctl_SOURCES = scoutctl.c
 scoutctl_LDADD = libscoutcommon.a
+hostname_SOURCES = hostname.c
+hostname_LDADD = libscoutcommon.a
 all: all-am
 
 .SUFFIXES:
@@ -451,6 +457,10 @@ libscoutcommon.a: $(libscoutcommon_a_OBJECTS) $(libscoutcommon_a_DEPENDENCIES) $
 	$(AM_V_AR)$(libscoutcommon_a_AR) libscoutcommon.a $(libscoutcommon_a_OBJECTS) $(libscoutcommon_a_LIBADD)
 	$(AM_V_at)$(RANLIB) libscoutcommon.a
 
+hostname$(EXEEXT): $(hostname_OBJECTS) $(hostname_DEPENDENCIES) $(EXTRA_hostname_DEPENDENCIES) 
+	@rm -f hostname$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(hostname_OBJECTS) $(hostname_LDADD) $(LIBS)
+
 nslookup$(EXEEXT): $(nslookup_OBJECTS) $(nslookup_DEPENDENCIES) $(EXTRA_nslookup_DEPENDENCIES) 
 	@rm -f nslookup$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(nslookup_OBJECTS) $(nslookup_LDADD) $(LIBS)
@@ -478,6 +488,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/common.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hostname.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nslookup.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ping.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/scout_blueyos_netctl.Po@am__quote@ # am--include-marker
@@ -639,6 +650,7 @@ clean-am: clean-binPROGRAMS clean-generic clean-noinstLIBRARIES \
 
 distclean: distclean-am
 		-rm -f ./$(DEPDIR)/common.Po
+	-rm -f ./$(DEPDIR)/hostname.Po
 	-rm -f ./$(DEPDIR)/nslookup.Po
 	-rm -f ./$(DEPDIR)/ping.Po
 	-rm -f ./$(DEPDIR)/scout_blueyos_netctl.Po
@@ -695,6 +707,7 @@ installcheck-am:
 
 maintainer-clean: maintainer-clean-am
 		-rm -f ./$(DEPDIR)/common.Po
+	-rm -f ./$(DEPDIR)/hostname.Po
 	-rm -f ./$(DEPDIR)/nslookup.Po
 	-rm -f ./$(DEPDIR)/ping.Po
 	-rm -f ./$(DEPDIR)/scout_blueyos_netctl.Po

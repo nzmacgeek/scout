@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if !defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/ip.h>
@@ -16,15 +15,13 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#endif
 
 static void usage(FILE *stream)
 {
     fprintf(stream, "Usage: tracert HOST\n");
 }
 
-#if !defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
-static int tracert_linux(const char *host)
+static int tracert_icmp(const char *host)
 {
     struct addrinfo hints;
     struct addrinfo *res = NULL;
@@ -114,7 +111,6 @@ static int tracert_linux(const char *host)
     close(icmp_fd);
     return 0;
 }
-#endif
 
 int main(int argc, char **argv)
 {
@@ -135,9 +131,5 @@ int main(int argc, char **argv)
         return 2;
     }
 
-#if !defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
-    return tracert_linux(argv[1]);
-#else
-    return 2;
-#endif
+    return tracert_icmp(argv[1]);
 }
