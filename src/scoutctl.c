@@ -253,7 +253,7 @@ static void copy_ifname(struct ifreq *ifr, const char *ifname)
     strncpy(ifr->ifr_name, ifname, sizeof(ifr->ifr_name) - 1);
 }
 
-static void print_iface_addresses(const char *ifname)
+static void print_iface_addresses(const scout_iface_t *iface)
 {
 #if defined(HAVE_GETIFADDRS)
     struct ifaddrs *ifaddr = NULL;
@@ -268,7 +268,7 @@ static void print_iface_addresses(const char *ifname)
         char addr[INET6_ADDRSTRLEN];
         void *src = NULL;
 
-        if (!ifa->ifa_name || strcmp(ifa->ifa_name, ifname) != 0 || !ifa->ifa_addr) {
+        if (!ifa->ifa_name || strcmp(ifa->ifa_name, iface->name) != 0 || !ifa->ifa_addr) {
             continue;
         }
 
@@ -294,7 +294,7 @@ static void print_iface_addresses(const char *ifname)
         printf("    addr: (none)\n");
     }
 #else
-    (void)ifname;
+    (void)iface;
     printf("    addr: unavailable on this build\n");
 #endif
 }
@@ -458,10 +458,40 @@ static int dns_flush(void)
 
 #else  /* SCOUT_ENABLE_BLUEYOS_NETCTL */
 
-static void print_iface_addresses(const char *ifname)
+typedef struct {
+    int count;
+} addr_print_ctx_t;
+
+static int addr_print_cb(uint8_t family, uint32_t addr, uint8_t prefix_len, void *userdata)
 {
-    (void)ifname;
-    printf("    addr: (not available via netctl)\n");
+    addr_print_ctx_t *ctx = (addr_print_ctx_t *)userdata;
+    char buf[INET6_ADDRSTRLEN];
+    struct in_addr in;
+
+    if (family != NETCTL_AF_INET) {
+        return 0;
+    }
+
+    in.s_addr = addr;
+    if (inet_ntop(AF_INET, &in, buf, sizeof(buf))) {
+        printf("    addr: %s/%u\n", buf, (unsigned int)prefix_len);
+        ctx->count++;
+    }
+    return 0;
+}
+
+static void print_iface_addresses(const scout_iface_t *iface)
+{
+    addr_print_ctx_t ctx;
+
+    ctx.count = 0;
+    if (scout_blueyos_netctl_list_addrs(iface->ifindex, addr_print_cb, &ctx) != 0) {
+        printf("    addr: (none)\n");
+        return;
+    }
+    if (ctx.count == 0) {
+        printf("    addr: (none)\n");
+    }
 }
 
 static int route_command(int argc, char **argv)
@@ -574,7 +604,7 @@ static int print_iface_details(const char *ifname)
         printf("    link_type: %s\n", value);
     }
 
-    print_iface_addresses(iface.name);
+    print_iface_addresses(&iface);
     return 0;
 }
 

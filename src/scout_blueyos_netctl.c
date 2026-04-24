@@ -36,6 +36,7 @@
 #define NETCTL_MSG_NETDEV_SET 13
 #define NETCTL_MSG_NETDEV_LIST 14
 #define NETCTL_MSG_ADDR_NEW 20
+#define NETCTL_MSG_ADDR_LIST 22
 #define NETCTL_MSG_ROUTE_NEW 30
 #define NETCTL_MSG_DONE 2
 #define NETCTL_MSG_ERROR 1
@@ -444,6 +445,140 @@ int scout_blueyos_netctl_list_interfaces(int (*cb)(const scout_iface_t *, void *
                 payload_len,
                 &candidate);
             if (cb(&candidate, userdata) != 0) {
+                break;
+            }
+        }
+
+        if (aligned_len > remaining) {
+            break;
+        }
+        cur += aligned_len;
+        remaining -= aligned_len;
+    }
+
+    return 0;
+}
+
+static int scout_netctl_parse_addr_attrs(const scout_netctl_attr_t *attr, size_t len,
+                                          uint8_t *family_out, uint32_t *addr_out,
+                                          uint8_t *prefix_out)
+{
+    const uint8_t *cur = (const uint8_t *)attr;
+    size_t remaining = len;
+
+    while (remaining >= sizeof(*attr)) {
+        const scout_netctl_attr_t *a = (const scout_netctl_attr_t *)cur;
+        const uint8_t *payload = cur + sizeof(*a);
+        size_t payload_len;
+        size_t aligned_len;
+
+        if (a->attr_len < sizeof(*a) || a->attr_len > remaining) {
+            break;
+        }
+
+        payload_len = a->attr_len - sizeof(*a);
+        aligned_len = scout_netctl_attr_align(a->attr_len);
+
+        switch (a->attr_type) {
+        case NETCTL_ATTR_ADDR_FAMILY:
+            if (payload_len >= sizeof(uint16_t)) {
+                uint16_t f;
+                memcpy(&f, payload, sizeof(f));
+                *family_out = (uint8_t)f;
+            }
+            break;
+        case NETCTL_ATTR_ADDR_VALUE:
+            if (payload_len >= sizeof(uint32_t)) {
+                memcpy(addr_out, payload, sizeof(uint32_t));
+            }
+            break;
+        case NETCTL_ATTR_ADDR_PREFIX:
+            if (payload_len >= 1) {
+                *prefix_out = payload[0];
+            }
+            break;
+        default:
+            break;
+        }
+
+        if (aligned_len > remaining) {
+            break;
+        }
+        cur += aligned_len;
+        remaining -= aligned_len;
+    }
+
+    return 0;
+}
+
+int scout_blueyos_netctl_list_addrs(unsigned int ifindex,
+                                     int (*cb)(uint8_t family, uint32_t addr,
+                                               uint8_t prefix_len, void *),
+                                     void *userdata)
+{
+    uint8_t req[256];
+    uint8_t resp[4096];
+    scout_netctl_header_t *hdr = (scout_netctl_header_t *)resp;
+    const uint8_t *cur;
+    size_t remaining;
+    int fd;
+    int rc;
+
+    fd = scout_netctl_open();
+    if (fd < 0) {
+        return -1;
+    }
+
+    scout_netctl_init(req, NETCTL_MSG_ADDR_LIST, 5);
+    if (scout_netctl_add_attr(req, sizeof(req), NETCTL_ATTR_IFINDEX, &ifindex,
+                              sizeof(ifindex)) != 0) {
+        close(fd);
+        return -1;
+    }
+
+    rc = scout_netctl_exchange(fd, req, ((scout_netctl_header_t *)req)->msg_len,
+                               resp, sizeof(resp));
+    close(fd);
+
+    if (rc < (int)sizeof(*hdr)) {
+        errno = EIO;
+        return -1;
+    }
+
+    if (hdr->msg_type == NETCTL_MSG_ERROR) {
+        errno = EIO;
+        return -1;
+    }
+
+    if (hdr->msg_len < sizeof(*hdr) || hdr->msg_len > (uint32_t)rc) {
+        errno = EIO;
+        return -1;
+    }
+
+    cur = resp + sizeof(*hdr);
+    remaining = hdr->msg_len - sizeof(*hdr);
+
+    while (remaining >= sizeof(scout_netctl_attr_t)) {
+        const scout_netctl_attr_t *attr = (const scout_netctl_attr_t *)cur;
+        size_t payload_len;
+        size_t aligned_len;
+
+        if (attr->attr_len < sizeof(*attr) || attr->attr_len > remaining) {
+            break;
+        }
+
+        aligned_len = scout_netctl_attr_align(attr->attr_len);
+        payload_len = attr->attr_len - sizeof(*attr);
+
+        if (attr->attr_type == NETCTL_ATTR_NESTED) {
+            uint8_t family = 0;
+            uint32_t addr = 0;
+            uint8_t prefix = 0;
+
+            scout_netctl_parse_addr_attrs(
+                (const scout_netctl_attr_t *)(cur + sizeof(*attr)),
+                payload_len, &family, &addr, &prefix);
+            if (cb(family, addr, prefix, userdata) != 0) {
                 break;
             }
         }

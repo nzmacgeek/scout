@@ -8,6 +8,10 @@
 #if defined(SCOUT_ENABLE_BLUEYOS_NETCTL)
 int scout_blueyos_netctl_get_interface(const char *ifname, scout_iface_t *iface);
 int scout_blueyos_netctl_list_interfaces(int (*cb)(const scout_iface_t *, void *), void *userdata);
+int scout_blueyos_netctl_list_addrs(unsigned int ifindex,
+                                     int (*cb)(uint8_t family, uint32_t addr,
+                                               uint8_t prefix_len, void *),
+                                     void *userdata);
 int scout_blueyos_netctl_set_link_up(unsigned int ifindex, uint32_t flags);
 int scout_blueyos_netctl_set_link_down(unsigned int ifindex, uint32_t flags);
 int scout_blueyos_netctl_addr_add(unsigned int ifindex, uint32_t addr, uint8_t prefix_len);
@@ -22,6 +26,17 @@ static inline int scout_blueyos_netctl_get_interface(const char *ifname, scout_i
 
 static inline int scout_blueyos_netctl_list_interfaces(int (*cb)(const scout_iface_t *, void *), void *userdata)
 {
+    (void)cb;
+    (void)userdata;
+    return -1;
+}
+
+static inline int scout_blueyos_netctl_list_addrs(unsigned int ifindex,
+                                                   int (*cb)(uint8_t family, uint32_t addr,
+                                                             uint8_t prefix_len, void *),
+                                                   void *userdata)
+{
+    (void)ifindex;
     (void)cb;
     (void)userdata;
     return -1;
